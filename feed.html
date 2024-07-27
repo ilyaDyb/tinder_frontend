@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swipe Profiles</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            background: #654ea3;
+            background: linear-gradient(to right, #e96443, #904e95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header a {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+        }
+
+        .card-container {
+            position: relative;
+            width: 600px;
+            height: 800px;
+            margin-top: 20px;
+        }
+
+        .card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, opacity 0.3s;
+            will-change: transform;
+        }
+
+        .card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-body {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            color: white;
+            padding: 20px;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .card-body h5, .card-body p {
+            margin: 0;
+        }
+
+        .highlight-left {
+            border: 5px solid rgba(255, 0, 0, 0.5);
+        }
+
+        .highlight-right {
+            border: 5px solid rgba(0, 255, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="#">Главная</a>
+        <a href="profile.html">Профиль</a>
+        <a href="#">Понравившееся</a>
+        <a href="#">Ваши лайки</a>
+        <a href="#">Чат</a>
+    </div>
+    <div class="card-container" id="card-container">
+        <!-- Cards will be inserted here by JavaScript -->
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            let currentIndex = 0;
+            let users = [];
+
+            function getUserPhoto(user) {
+                if (user.photo && user.photo.length > 0) {
+                    const previewPhoto = user.photo.find(p => p.is_preview) || user.photo[0];
+                    return `file:///home/wicki/.local/golang_projects/go_rest_api/${previewPhoto.url}`;
+                }
+                return 'https://via.placeholder.com/600x800'; // Placeholder if no photo available
+            }
+
+            function loadNextCard() {
+                if (currentIndex < users.length) {
+                    const user = users[currentIndex];
+                    const photo = getUserPhoto(user);
+                    const cardHtml = `
+                        <div class="card">
+                            <img src="${photo}" alt="User photo">
+                            <div class="card-body">
+                                <h5 class="card-title">${user.firstname} ${user.lastname}, ${user.age}</h5>
+                                <p class="card-text">${user.bio}</p>
+                                <p class="card-text"><small>${user.hobbies}</small></p>
+                            </div>
+                        </div>
+                    `;
+                    $('#card-container').append(cardHtml);
+                    const newCard = $('#card-container .card').last();
+                    addSwipeEvents(newCard, user);
+                    currentIndex++;
+                } else {
+                    fetchProfiles().done(function() {
+                        if (users.length > currentIndex) {
+                            loadNextCard();
+                        }
+                    });
+                }
+            }
+
+            function addSwipeEvents(card, user) {
+                const hammer = new Hammer(card[0]);
+                hammer.get('pan').set({ direction: Hammer.DIRECTION_HORIZONTAL });
+
+                hammer.on('pan', function(event) {
+                    const deltaX = event.deltaX;
+                    const opacity = Math.min(Math.abs(deltaX) / 300, 1);
+                    card.css('transform', `translateX(${deltaX}px) rotate(${deltaX / 20}deg)`);
+
+                    if (deltaX > 0) {
+                        card.removeClass('highlight-left').addClass('highlight-right');
+                        card.css('border-color', `rgba(0, 255, 0, ${opacity})`);
+                    } else {
+                        card.removeClass('highlight-right').addClass('highlight-left');
+                        card.css('border-color', `rgba(255, 0, 0, ${opacity})`);
+                    }
+                });
+
+                hammer.on('panend', function(event) {
+                    const deltaX = event.deltaX;
+                    if (Math.abs(deltaX) > 150) {
+                        card.css('transform', `translateX(${deltaX > 0 ? 1000 : -1000}px)`);
+                        setTimeout(function() {
+                            card.remove();
+                            if (deltaX > 0) {
+                                likeUser(user);
+                            } else {
+                                dislikeUser(user);
+                            }
+                            loadNextCard();
+                        }, 300);
+                    } else {
+                        card.css('transform', '');
+                        card.removeClass('highlight-left highlight-right');
+                    }
+                });
+            }
+
+            function likeUser(user) {
+                $.ajax({
+                    url: 'http://localhost:8080/feed/grade',
+                    method: 'POST',
+                    headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`},
+                    contentType: 'application/json',
+                    data: JSON.stringify({ TargetID: user.id, InterType: 'like' }),
+                    success: function(response) {
+                        console.log('Liked user:', response);
+                    },
+                    error: function(error) {
+                        console.error('Error liking user:', error);
+                    }
+                });
+            }
+
+            function dislikeUser(user) {
+                $.ajax({
+                    url: 'http://localhost:8080/feed/grade',
+                    method: 'POST',
+                    headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`},
+                    contentType: 'application/json',
+                    data: JSON.stringify({ TargetID: user.id, InterType: 'dislike' }),
+                    success: function(response) {
+                        console.log('Disliked user:', response);
+                    },
+                    error: function(error) {
+                        console.error('Error disliking user:', error);
+                    }
+                });
+            }
+
+            function fetchProfiles() {
+                return $.ajax({
+                    url: 'http://localhost:8080/feed/get-profiles',
+                    method: 'GET',
+                    headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`},
+                    contentType: 'application/json',
+                    success: function(response) {
+                        if (response.result && response.users.length > 0) {
+                            users.push(...response.users);
+                        }
+                    },
+                    error: function(error) {
+                        console.error('Error fetching profiles:', error);
+                    }
+                });
+            }
+
+            // Initial fetch and load the first card
+            fetchProfiles().done(loadNextCard);
+        });
+
+    </script>
+</body>
+</html>

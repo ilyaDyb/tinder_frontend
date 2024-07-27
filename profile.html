@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Page</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <style>
+        body {
+            background: #654ea3;
+            background: linear-gradient(to right, #e96443, #904e95);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .profile-head {
+            transform: translateY(5rem);
+        }
+        .cover {
+            background-image: url('https://images.unsplash.com/photo-1530305408560-82d13781b33a?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1352&q=80');
+            background-size: cover;
+            background-repeat: no-repeat;
+        }
+        .profile img {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+        }
+        .profile a {
+            color: white;
+            text-decoration: none;
+        }
+        .profile a:hover {
+            text-decoration: underline;
+        }
+        .media-body h4 {
+            margin-bottom: 15px;
+        }
+        .btn-outline-light {
+            color: white;
+            border-color: white;
+        }
+        .btn-outline-light:hover {
+            background-color: white;
+            color: black;
+        }
+        .header a {
+            color: white;
+            margin: 0 15px;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="#">Главная</a>
+        <a href="#">Профиль</a>
+        <a href="#">Понравившееся</a>
+        <a href="#">Ваши лайки</a>
+        <a href="#">Чат</a>
+    </div>
+    <div class="row py-5 px-4">
+        <div class="col-md-5 mx-auto">
+            <!-- Profile widget -->
+            <div class="bg-white shadow rounded overflow-hidden">
+                <div class="px-4 pt-0 pb-4 cover">
+                    <div class="media align-items-end profile-head" style="position: relative; bottom: 40px;">
+                        <div class="profile mr-3">
+                            <img id="avatar" src="https://via.placeholder.com/150" alt="Profile Picture" width="150" class="rounded mb-2 img-thumbnail">
+                            <a href="#" class="btn btn-outline-light btn-sm btn-block mt-2">Edit profile</a>
+                        </div>
+                        <div class="media-body mb-5 text-white">
+                            <h4 id="name" class="mt-0">Loading...</h4>
+                            <p id="location" class="small mb-4"> <i class="fas fa-map-marker-alt mr-2"></i></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-light p-4 d-flex justify-content-end text-center">
+                    <ul class="list-inline mb-0">
+                        <li class="list-inline-item">
+                            <h5 id="countPhotos" class="font-weight-bold mb-0 d-block">0</h5><small class="text-muted"> <i class="fas fa-image mr-1"></i>Photos</small>
+                        </li>
+                        <li class="list-inline-item">
+
+                    </ul>
+                </div>
+                <div class="px-4 py-3">
+                    <h5 class="mb-0">About</h5>
+                    <div class="p-4 rounded shadow-sm bg-light">
+                        <p id="bio" class="font-italic mb-0">Web Developer</p>
+                        <p id="hobbies" class="font-italic mb-0">Lives in New York</p>
+                    </div>
+                </div>
+                <div class="py-4 px-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="mb-0">Recent photos</h5>
+                        <a href="#" class="btn btn-link text-muted">Show all</a>
+                    </div>
+                    <div class="row" id="photos-container">
+                        <!-- Photos will be appended here by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        const token = localStorage.getItem('token');
+
+        function fetchProfile() {
+            return $.ajax({
+                url: 'http://localhost:8080/u/profile/',
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                success: function(response) {
+                    displayProfile(response);
+                    getLocation();
+                },
+                error: function(error) {
+                    console.error('Error fetching profile:', error);
+                }
+            });
+        }
+
+        function displayProfile(data) {
+            document.getElementById('name').textContent = `${data.user.firstname} ${data.user.lastname}, ${data.user.age}`;
+            document.getElementById('bio').textContent = data.user.bio;
+            document.getElementById('hobbies').textContent = `Hobbies: ${data.user.hobbies}`;
+            const avatar = data.user.photo.find(p => p.is_preview) || data.user.photo[0];
+            document.getElementById('avatar').src = `file:///home/wicki/.local/golang_projects/go_rest_api/${avatar.url}`;
+            document.getElementById('countPhotos').textContent = data.count_photos
+
+            const photosContainer = document.getElementById('photos-container');
+            photosContainer.innerHTML = ''; // Clear previous photos
+            data.user.photo.forEach(photo => {
+                const photoDiv = document.createElement('div');
+                photoDiv.className = 'col-lg-6 mb-2 pr-lg-1';
+                photoDiv.innerHTML = `<img src="file:///home/wicki/.local/golang_projects/go_rest_api/${photo.url}" alt="Photo" class="img-fluid rounded shadow-sm">`;
+                photosContainer.appendChild(photoDiv);
+            });
+        }
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(saveLocation, locationDenied);
+            } else {
+                document.getElementById("location").innerHTML = "Geolocation is not supported by this browser.";
+            }
+        }
+
+        function saveLocation(position) {
+            var lat = position.coords.latitude;
+            var lon = position.coords.longitude;
+            document.getElementById("location").innerHTML = `Latitude: ${lat}<br>Longitude: ${lon}`;
+
+            $.ajax({
+                url: 'http://localhost:8080/u/save-location',
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({ lat: lat, lon: lon }),
+                success: function(response) {
+                    console.log('Location saved:', response);
+                },
+                error: function(error) {
+                    console.error('Error saving location:', error);
+                }
+            });
+        }
+
+        function locationDenied(error) {
+            document.getElementById("location").innerHTML = "Geolocation permission denied.";
+            $.ajax({
+                url: 'http://localhost:8080/u/set-coordinates',
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({ error: "User denied the request for Geolocation." }),
+                success: function(response) {
+                    console.log('Error set:', response);
+                },
+                error: function(error) {
+                    console.error('Error setting coordinates:', error);
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            fetchProfile();
+        });
+    </script>
+</body>
+</html>
