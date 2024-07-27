@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile Page</title>
+    <title>Profile</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <style>
         body {
@@ -52,11 +52,10 @@
 </head>
 <body>
     <div class="header">
-        <a href="#">Главная</a>
-        <a href="#">Профиль</a>
-        <a href="#">Понравившееся</a>
-        <a href="#">Ваши лайки</a>
-        <a href="#">Чат</a>
+        <a href="feed.html">Main</a>
+        <a href="profile.html">Profile</a>
+        <a href="#">Users which liked me</a>
+        <a href="#">Chat</a>
     </div>
     <div class="row py-5 px-4">
         <div class="col-md-5 mx-auto">
@@ -66,7 +65,7 @@
                     <div class="media align-items-end profile-head" style="position: relative; bottom: 40px;">
                         <div class="profile mr-3">
                             <img id="avatar" src="https://via.placeholder.com/150" alt="Profile Picture" width="150" class="rounded mb-2 img-thumbnail">
-                            <a href="#" class="btn btn-outline-light btn-sm btn-block mt-2">Edit profile</a>
+                            <a href="#" class="btn btn-outline-light btn-sm btn-block mt-2" onclick="editProfile()">Edit profile</a>
                         </div>
                         <div class="media-body mb-5 text-white">
                             <h4 id="name" class="mt-0">Loading...</h4>
@@ -79,15 +78,14 @@
                         <li class="list-inline-item">
                             <h5 id="countPhotos" class="font-weight-bold mb-0 d-block">0</h5><small class="text-muted"> <i class="fas fa-image mr-1"></i>Photos</small>
                         </li>
-                        <li class="list-inline-item">
-
                     </ul>
                 </div>
                 <div class="px-4 py-3">
                     <h5 class="mb-0">About</h5>
                     <div class="p-4 rounded shadow-sm bg-light">
-                        <p id="bio" class="font-italic mb-0">Web Developer</p>
-                        <p id="hobbies" class="font-italic mb-0">Lives in New York</p>
+                        <p id="bio" class="font-italic mb-0"></p>
+                        <p id="hobbies" class="font-italic mb-0"></p>
+                        <p id="place" class="font-italic mb-0"></p>
                     </div>
                 </div>
                 <div class="py-4 px-4">
@@ -102,25 +100,79 @@
             </div>
         </div>
     </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1" role="dialog" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+                </div>
+                <div class="modal-body">
+                    <form id="editProfileForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="firstname">First Name</label>
+                            <input type="text" class="form-control" id="firstname" name="firstname" maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="lastname">Last Name</label>
+                            <input type="text" class="form-control" id="lastname" name="lastname" maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="age">Age</label>
+                            <input type="number" class="form-control" id="age" name="age" min="18" max="99">
+                        </div>
+                        <div class="form-group">
+                            <label for="country">Country</label>
+                            <input type="text" class="form-control" id="country" name="country" maxlength="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="city">City</label>
+                            <input type="text" class="form-control" id="city" name="city" maxlength="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="bio">Bio</label>
+                            <textarea class="form-control" id="bio" name="bio" maxlength="500"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="hobbies">Hobbies</label>
+                            <input type="text" class="form-control" id="hobbies" name="hobbies" maxlength="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="photo">Profile Photo</label>
+                            <input type="file" class="form-control-file" id="photo" name="photo">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const token = localStorage.getItem('token');
 
-        function fetchProfile() {
-            return $.ajax({
-                url: 'http://localhost:8080/u/profile/',
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                success: function(response) {
-                    displayProfile(response);
-                    getLocation();
-                },
-                error: function(error) {
-                    console.error('Error fetching profile:', error);
+        async function fetchProfile() {
+            try {
+                const response = await fetch('http://localhost:8080/u/profile/', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
                 }
-            });
+
+                const data = await response.json();
+                displayProfile(data);
+                if (!data.user.lat || !data.user.lon) {
+                    getLocation();
+                }
+            } catch (error) {
+                console.error('Error fetching profile:', error);
+            }
         }
 
         function displayProfile(data) {
@@ -129,7 +181,10 @@
             document.getElementById('hobbies').textContent = `Hobbies: ${data.user.hobbies}`;
             const avatar = data.user.photo.find(p => p.is_preview) || data.user.photo[0];
             document.getElementById('avatar').src = `file:///home/wicki/.local/golang_projects/go_rest_api/${avatar.url}`;
-            document.getElementById('countPhotos').textContent = data.count_photos
+            document.getElementById('countPhotos').textContent = data.count_photos;
+            document.getElementById('place').textContent = `${data.user.country} ${data.user.city}`;
+            
+            window.userData = data.user;
 
             const photosContainer = document.getElementById('photos-container');
             photosContainer.innerHTML = ''; // Clear previous photos
@@ -139,6 +194,7 @@
                 photoDiv.innerHTML = `<img src="file:///home/wicki/.local/golang_projects/go_rest_api/${photo.url}" alt="Photo" class="img-fluid rounded shadow-sm">`;
                 photosContainer.appendChild(photoDiv);
             });
+            console.log(window.userData)
         }
 
         function getLocation() {
@@ -149,50 +205,103 @@
             }
         }
 
-        function saveLocation(position) {
-            var lat = position.coords.latitude;
-            var lon = position.coords.longitude;
+        async function saveLocation(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
             document.getElementById("location").innerHTML = `Latitude: ${lat}<br>Longitude: ${lon}`;
 
-            $.ajax({
-                url: 'http://localhost:8080/u/save-location',
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                data: JSON.stringify({ lat: lat, lon: lon }),
-                success: function(response) {
-                    console.log('Location saved:', response);
-                },
-                error: function(error) {
-                    console.error('Error saving location:', error);
+            try {
+                const response = await fetch('http://localhost:8080/u/save-location', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ lat, lon })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
                 }
-            });
+
+                const data = await response.json();
+                console.log('Location saved:', data);
+            } catch (error) {
+                console.error('Error saving location:', error);
+            }
         }
 
-        function locationDenied(error) {
+        async function locationDenied(error) {
             document.getElementById("location").innerHTML = "Geolocation permission denied.";
-            $.ajax({
-                url: 'http://localhost:8080/u/set-coordinates',
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                data: JSON.stringify({ error: "User denied the request for Geolocation." }),
-                success: function(response) {
-                    console.log('Error set:', response);
-                },
-                error: function(error) {
-                    console.error('Error setting coordinates:', error);
+
+            try {
+                const response = await fetch('http://localhost:8080/u/set-coordinates', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ error: "User denied the request for Geolocation." })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
                 }
-            });
+
+                const data = await response.json();
+                console.log('Error set:', data);
+            } catch (error) {
+                console.error('Error setting coordinates:', error);
+            }
         }
 
-        $(document).ready(function() {
+        function editProfile() {
+            const modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+            const user = window.userData
+            document.getElementById('firstname').value = user.firstname;
+            document.getElementById('lastname').value =  user.lastname;
+            document.getElementById('age').value =       user.age;
+            document.getElementById('country').value =   user.country;
+            document.getElementById('city').value =      user.city;
+            console.log(document.getElementById('age'))
+            console.log(document.getElementById('city'))
+            document.getElementById('bio').value =       user.bio;
+            document.getElementById('hobbies').value =   user.hobbies;
+
+            modal.show();
+        }
+
+        document.getElementById('editProfileForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch('http://localhost:8080/u/profile/', {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+                console.log('Profile updated successfully');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+                modal.hide();
+                fetchProfile();
+            } catch (error) {
+                console.error('Error updating profile:', error);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
             fetchProfile();
         });
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
